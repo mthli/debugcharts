@@ -32,6 +32,8 @@ import (
 	"github.com/mkevac/debugcharts/bindata"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/process"
+	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/fasthttpadaptor"
 )
 
 type update struct {
@@ -101,7 +103,46 @@ var (
 	prevSysTime  float64
 	prevUserTime float64
 	myProcess    *process.Process
+
+	fasthttpDataFeedHandler     = fasthttpadaptor.NewFastHTTPHandlerFunc(s.dataFeedHandler)
+	fasthttpDataHandler         = fasthttpadaptor.NewFastHTTPHandlerFunc(dataHandler)
+	fasthttpStaticIndexHandler  = fasthttpadaptor.NewFastHTTPHandlerFunc(handleAsset("static/index.html"))
+	fasthttpStaticMainHandler   = fasthttpadaptor.NewFastHTTPHandlerFunc(handleAsset("static/main.js"))
+	fasthttpStaticJQueryHandler = fasthttpadaptor.NewFastHTTPHandlerFunc(handleAsset("static/jquery-2.1.4.min.js"))
+	fasthttpStaticPlotlyHandler = fasthttpadaptor.NewFastHTTPHandlerFunc(handleAsset("static/plotly-1.51.3.min.js"))
+	fasthttpStaticMomentHandler = fasthttpadaptor.NewFastHTTPHandlerFunc(handleAsset("static/moment.min.js"))
 )
+
+// FastHTTPHandler adaptor for fasthttp
+func FastHTTPHandler(ctx *fasthttp.RequestCtx) {
+	path := string(ctx.Path())
+	if path == "/debug/charts" {
+		ctx.Redirect("/debug/charts/", 302)
+		return
+	}
+
+	switch path {
+	case "/debug/charts/data-feed":
+		fasthttpDataFeedHandler(ctx)
+	case "/debug/charts/data":
+		fasthttpDataHandler(ctx)
+	case "/debug/charts/main.js":
+		ctx.Response.Header.Set(fasthttp.HeaderContentType, "text/javascript")
+		fasthttpStaticMainHandler(ctx)
+	case "/debug/charts/jquery-2.1.4.min.js":
+		ctx.Response.Header.Set(fasthttp.HeaderContentType, "text/javascript")
+		fasthttpStaticJQueryHandler(ctx)
+	case "/debug/charts/plotly-1.51.3.min.js":
+		ctx.Response.Header.Set(fasthttp.HeaderContentType, "text/javascript")
+		fasthttpStaticPlotlyHandler(ctx)
+	case "/debug/charts/moment.min.js":
+		ctx.Response.Header.Set(fasthttp.HeaderContentType, "text/javascript")
+		fasthttpStaticMomentHandler(ctx)
+	default:
+		ctx.Response.Header.Set(fasthttp.HeaderContentType, "text/html")
+		fasthttpStaticIndexHandler(ctx)
+	}
+}
 
 func (s *server) gatherData() {
 	timer := time.Tick(time.Second)
@@ -173,13 +214,13 @@ func (s *server) gatherData() {
 }
 
 func init() {
-	http.HandleFunc("/debug/charts/data-feed", s.dataFeedHandler)
-	http.HandleFunc("/debug/charts/data", dataHandler)
-	http.HandleFunc("/debug/charts/", handleAsset("static/index.html"))
-	http.HandleFunc("/debug/charts/main.js", handleAsset("static/main.js"))
-	http.HandleFunc("/debug/charts/jquery-2.1.4.min.js", handleAsset("static/jquery-2.1.4.min.js"))
-	http.HandleFunc("/debug/charts/plotly-1.51.3.min.js", handleAsset("static/plotly-1.51.3.min.js"))
-	http.HandleFunc("/debug/charts/moment.min.js", handleAsset("static/moment.min.js"))
+	// http.HandleFunc("/debug/charts/data-feed", s.dataFeedHandler)
+	// http.HandleFunc("/debug/charts/data", dataHandler)
+	// http.HandleFunc("/debug/charts/", handleAsset("static/index.html"))
+	// http.HandleFunc("/debug/charts/main.js", handleAsset("static/main.js"))
+	// http.HandleFunc("/debug/charts/jquery-2.1.4.min.js", handleAsset("static/jquery-2.1.4.min.js"))
+	// http.HandleFunc("/debug/charts/plotly-1.51.3.min.js", handleAsset("static/plotly-1.51.3.min.js"))
+	// http.HandleFunc("/debug/charts/moment.min.js", handleAsset("static/moment.min.js"))
 
 	myProcess, _ = process.NewProcess(int32(os.Getpid()))
 
